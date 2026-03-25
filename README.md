@@ -71,9 +71,6 @@ We compare both models based on:
 - SMAPE  
 - RMSE  
 - MAPE variants  
-
----
-
 ## 📚 Related Works
 
 ### 📄 DMVST-Net (2018)
@@ -84,8 +81,6 @@ We compare both models based on:
 
 **Key idea:**  
 Urban traffic demand is influenced by both spatial and temporal dynamics, requiring models that can capture both aspects effectively.
-
----
 
 ### 📄 Spatiotemporal Distribution Learning (2025)
 🔗 https://arxiv.org/abs/2502.12213
