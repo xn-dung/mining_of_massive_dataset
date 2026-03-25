@@ -52,7 +52,7 @@ This dataset provides strong **temporal and spatial patterns**, making it ideal 
   - Input: past `T` timesteps  
   - Output: next timestep demand  
 ## 🧠 Models
-To do this task, we experiment with **two separate models** ,compare their performance and improve them later
+To do this task, we experiment with **a hybrid architecture** ,compare their performance and improve them later
 
 ### 🔹 Model 1: CNN-based Model
 - Learns **spatial patterns** from grid-based data  
