@@ -5,18 +5,21 @@ from utils import sample_get, sample_get_network, sample_get_static, custom_loss
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 seq_len = 8
 feature_len = 100
-topo_len = 32
-batch_size = 64
-epochs = 200
+topo_len = 32 
+batch_size = 64 
+epochs = 100 
 loss_lambda = 10.0
+
 
 datasource = np.random.rand(1000, feature_len + 1)
 network_data = np.random.rand(1000, 9, 9)
 static_data = np.random.rand(1000, topo_len)
 
-cnt = 1
+cnt = 48
+
 
 trainX, trainY = sample_get(datasource, seq_len, cnt)
 trainimage = sample_get_network(network_data, seq_len, cnt)
@@ -28,17 +31,16 @@ mean_label = trainY.mean()
 
 trainX = torch.tensor(trainX, dtype=torch.float32).to(device)
 trainY = torch.tensor(trainY, dtype=torch.float32).to(device)
-trainimage = torch.tensor(trainimage, dtype=torch.float32).unsqueeze(-1).to(device)
+trainimage = torch.tensor(trainimage, dtype=torch.float32).unsqueeze(2).to(device) 
 traintopo = torch.tensor(traintopo, dtype=torch.float32).to(device)
 
 model = CNN_LSTM_Model(seq_len=seq_len, feature_len=feature_len, topo_len=topo_len).to(device)
+
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 for epoch in range(epochs):
     model.train()
-
     perm = torch.randperm(trainX.size(0))
-
     total_loss = 0
 
     for i in range(0, trainX.size(0), batch_size):
@@ -59,16 +61,26 @@ for epoch in range(epochs):
 
         total_loss += loss.item()
 
-    print("Epoch:", epoch, "Loss:", total_loss)
+    print("Epoch:", epoch, "Loss:", total_loss / (trainX.size(0) // batch_size + 1))
 
 model.eval()
+all_preds = []
 
 with torch.no_grad():
-    pred = model(trainimage, trainX, traintopo).cpu().numpy()
+    for i in range(0, trainX.size(0), batch_size):
+        batch_x = trainX[i:i+batch_size]
+        batch_img = trainimage[i:i+batch_size]
+        batch_topo = traintopo[i:i+batch_size]
+        
+        batch_pred = model(batch_img, batch_x, batch_topo).cpu().numpy()
+        all_preds.append(batch_pred)
+
+    pred = np.concatenate(all_preds, axis=0)
     true = trainY.cpu().numpy()
 
     smape, rmse, mape_variant = get_metrics(true, pred, label_max, label_min)
 
-    print("SMAPE:", smape)
-    print("RMSE:", rmse)
-    print("MAPE_variant:", mape_variant)
+    print("\n--- KẾT QUẢ ĐÁNH GIÁ ---")
+    print(f"SMAPE: {smape:.4f}")
+    print(f"RMSE: {rmse:.4f}")
+    print(f"MAPE_variant: {mape_variant:.4f}")
