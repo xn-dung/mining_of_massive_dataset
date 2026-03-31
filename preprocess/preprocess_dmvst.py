@@ -38,7 +38,7 @@ if __name__ == '__main__':
     data = np.zeros((T,C,H,W), dtype = np.float32)
     data[time_indices,0,grid_x,grid_y] = start_vols
     data[time_indices,1,grid_x,grid_y] = end_vols
-    data[time_indices, 2, grid_x, grid_y] = start_vols - end_vols
+    data[time_indices,2, grid_x, grid_y] = start_vols - end_vols
     np.save(DATA_DIR + 'taxi_volume_4d_tensor.npy', data)
     print("Finished!")
 

@@ -20,7 +20,7 @@ class CNN_LSTM_Model(nn.Module):
     def __init__(self, seq_len=8, feature_len=100, topo_len=32):
         super(CNN_LSTM_Model, self).__init__()
 
-        self.conv1 = LocalSeqConv(seq_len, 1, 64)
+        self.conv1 = LocalSeqConv(seq_len, 3, 64)
         self.bn1 = nn.BatchNorm3d(64)
 
         self.conv2 = LocalSeqConv(seq_len, 64, 64)
@@ -43,9 +43,9 @@ class CNN_LSTM_Model(nn.Module):
     
 
         x = self.conv1(image)
-        x = x.permute(0, 2, 1, 3, 4)
+        x = x.transpose(1, 2)
         x = self.bn1(x)
-        x = x.permute(0, 2, 1, 3, 4) 
+        x = x.transpose(1, 2)
 
         x = self.conv2(x)
         x = x.permute(0, 2, 1, 3, 4)

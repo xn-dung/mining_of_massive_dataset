@@ -1,19 +1,17 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import numpy as np
 
-class TaxiVolumeDataset(Dataset):
-    def __init__(self, npy_path, seq_len=6, pred_len=1, crop_size=7):
-        """
-        Args:
-            npy_path: Đường dẫn tới file .npy đã xử lý.
-            seq_len: Số bước thời gian dùng làm đầu vào (Ví dụ: 6 bước = 3 tiếng).
-            pred_len: Số bước thời gian cần dự đoán (Ví dụ: 1 bước = 30 phút tới).
-            crop_size: Kích thước vùng không gian muốn cắt (Ví dụ: 7 -> cắt 7x7).
-        """
-        self.data = np.load(npy_path)
+class TLCdataset(Dataset):
+    def __init__(self, npy_path, seq_len=8, pred_len=1, crop_size=9):
+        raw_data = np.load(npy_path) 
         
-        self.data = torch.FloatTensor(self.data)
+        self.min_val = raw_data.min(axis=(0, 2, 3), keepdims=True)
+        self.max_val = raw_data.max(axis=(0, 2, 3), keepdims=True)
+        
+        normalized_data = (raw_data - self.min_val) / (self.max_val - self.min_val + 1e-7)
+        
+        self.data = torch.FloatTensor(normalized_data)
         
         self.T, self.C, self.H, self.W = self.data.shape
         self.seq_len = seq_len
@@ -21,7 +19,6 @@ class TaxiVolumeDataset(Dataset):
         self.crop_size = crop_size
 
         self.valid_times = self.T - self.seq_len - self.pred_len + 1
-
         self.h_steps = self.H - self.crop_size + 1
         self.w_steps = self.W - self.crop_size + 1
         self.patches_per_time = self.h_steps * self.w_steps
@@ -30,9 +27,7 @@ class TaxiVolumeDataset(Dataset):
         return self.valid_times * self.patches_per_time
 
     def __getitem__(self, idx):
-
         time_idx = idx // self.patches_per_time
-        
         patch_idx = idx % self.patches_per_time
         
         h_start = patch_idx // self.w_steps
@@ -45,3 +40,6 @@ class TaxiVolumeDataset(Dataset):
         Y_crop = Y_full[:, :, h_start : h_start + self.crop_size, w_start : w_start + self.crop_size]
 
         return X_crop, Y_crop
+
+    def denormalize(self, x):
+        return x * (self.max_val - self.min_val + 1e-7) + self.min_val

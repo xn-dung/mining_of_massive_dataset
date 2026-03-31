@@ -15,7 +15,7 @@ loss_lambda = 10.0
 
 
 datasource = np.random.rand(1000, feature_len + 1)
-network_data = np.random.rand(1000, 9, 9)
+network_data = np.random.rand(1000, 3, 9, 9)
 static_data = np.random.rand(1000, topo_len)
 
 cnt = 48
@@ -31,7 +31,7 @@ mean_label = trainY.mean()
 
 trainX = torch.tensor(trainX, dtype=torch.float32).to(device)
 trainY = torch.tensor(trainY, dtype=torch.float32).to(device)
-trainimage = torch.tensor(trainimage, dtype=torch.float32).unsqueeze(2).to(device) 
+# trainimage = torch.tensor(trainimage, dtype=torch.float32).unsqueeze(2).to(device) 
 traintopo = torch.tensor(traintopo, dtype=torch.float32).to(device)
 
 model = CNN_LSTM_Model(seq_len=seq_len, feature_len=feature_len, topo_len=topo_len).to(device)
@@ -51,6 +51,9 @@ for epoch in range(epochs):
         batch_img = trainimage[idx]
         batch_topo = traintopo[idx]
 
+        if not isinstance(batch_img, torch.Tensor):
+            batch_img = torch.from_numpy(batch_img).float().to(device)
+        
         pred = model(batch_img, batch_x, batch_topo)
 
         loss = custom_loss(pred, batch_y, label_max, label_min, mean_label, loss_lambda)
@@ -71,6 +74,12 @@ with torch.no_grad():
         batch_x = trainX[i:i+batch_size]
         batch_img = trainimage[i:i+batch_size]
         batch_topo = traintopo[i:i+batch_size]
+        if not isinstance(batch_img, torch.Tensor):
+            batch_img = torch.tensor(batch_img, dtype=torch.float32).to(device)
+        if not isinstance(batch_x, torch.Tensor):
+            batch_x = torch.tensor(batch_x, dtype=torch.float32).to(device)
+        if not isinstance(batch_topo, torch.Tensor):
+            batch_topo = torch.tensor(batch_topo, dtype=torch.float32).to(device)
         
         batch_pred = model(batch_img, batch_x, batch_topo).cpu().numpy()
         all_preds.append(batch_pred)

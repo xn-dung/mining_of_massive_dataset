@@ -38,16 +38,21 @@ def sample_get_static(datasource, seq_len, cnt):
     return np.array(X)
 
 
-def custom_loss(pred, target, label_max, label_min, mean_label, loss_lambda, eps=1e-5):
+def custom_loss(pred, target, label_max, label_min, mean_label, loss_lambda, eps=1e-8):
+
     y_true = target * (label_max - label_min) + label_min
     y_pred = pred * (label_max - label_min) + label_min
 
     diff = (y_true - y_pred) ** 2 / torch.clamp(y_true ** 2, min=eps)
+    relative_loss = 10.0 * torch.mean(diff, dim=-1)
 
-    loss1 = 10.0 * torch.mean(diff)
-    loss2 = loss_lambda / (mean_label ** 2 + eps) * torch.mean((y_pred - y_true) ** 2)
+    mean_label = torch.tensor(mean_label, dtype=torch.float32, device=pred.device)
+    mse = torch.mean((y_pred - y_true) ** 2, dim=-1)
+    mse_scaled = loss_lambda / (mean_label ** 2) * mse
 
-    return loss1 + loss2
+    loss = relative_loss + mse_scaled
+
+    return torch.mean(loss)
 
 
 def get_metrics(y_true, y_pred, max_value, min_value):
