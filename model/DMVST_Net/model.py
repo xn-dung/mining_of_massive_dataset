@@ -30,7 +30,7 @@ class CNN_LSTM_Model(nn.Module):
 
         # Output của CNN là (B,T,64,9,9)
 
-        self.fc_spatial = nn.Linear(64 * 9 * 9, 64)
+        self.fc_spatial = nn.Linear(64 * 9  * 9, 64)
 
         self.lstm = nn.LSTM(feature_len + 64, 512, batch_first=True)
 
