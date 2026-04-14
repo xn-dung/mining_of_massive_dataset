@@ -3,12 +3,11 @@ from torch.utils.data import Dataset
 import numpy as np
 
 class TLCdataset(Dataset):
-    def __init__(self, npy_path, seq_len=8, pred_len=1, crop_size=9):
-        raw_data = np.load(npy_path) 
+    def __init__(self, raw_npy, seq_len=8, pred_len=1, crop_size=9, min_val=None, max_val=None):
+        raw_data = raw_npy
         
-        self.min_val = raw_data.min(axis=(0, 2, 3), keepdims=True)
-        self.max_val = raw_data.max(axis=(0, 2, 3), keepdims=True)
-        
+        self.min_val = min_val
+        self.max_val = max_val
         normalized_data = (raw_data - self.min_val) / (self.max_val - self.min_val + 1e-7)
         
         self.data = torch.FloatTensor(normalized_data)
@@ -37,9 +36,16 @@ class TLCdataset(Dataset):
         Y_full = self.data[time_idx + self.seq_len : time_idx + self.seq_len + self.pred_len]
 
         X_crop = X_full[:, :, h_start : h_start + self.crop_size, w_start : w_start + self.crop_size]
-        Y_crop = Y_full[:, :, h_start : h_start + self.crop_size, w_start : w_start + self.crop_size]
+        center_h = h_start + self.crop_size // 2
+        center_w = w_start + self.crop_size // 2
+        target_channel = 0
 
-        return X_crop, Y_crop
+        Y_center = Y_full[:, target_channel,center_h,center_w]
+
+        return X_crop, Y_center
 
     def denormalize(self, x):
-        return x * (self.max_val - self.min_val + 1e-7) + self.min_val
+        c_min = self.min_val[0,0,0,0]
+        c_max = self.max_val[0,0,0,0]
+
+        return x * (c_max - c_min + 1e-7) + c_min

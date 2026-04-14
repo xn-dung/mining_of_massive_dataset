@@ -17,7 +17,7 @@ class LocalSeqConv(nn.Module):
 
 
 class CNN_LSTM_Model(nn.Module):
-    def __init__(self, seq_len=8, feature_len=100, topo_len=32):
+    def __init__(self, seq_len=8):
         super(CNN_LSTM_Model, self).__init__()
 
         self.conv1 = LocalSeqConv(seq_len, 3, 64)
@@ -32,11 +32,11 @@ class CNN_LSTM_Model(nn.Module):
 
         self.fc_spatial = nn.Linear(64 * 9  * 9, 64)
 
-        self.lstm = nn.LSTM(feature_len + 64, 512, batch_first=True)
+        self.lstm = nn.LSTM(64, 512, batch_first=True)
 
-        self.topo_fc = nn.Linear(topo_len, 6)
+        # self.topo_fc = nn.Linear(topo_len, 6)
 
-        self.final_fc = nn.Linear(512 + 6, 1)
+        self.final_fc = nn.Linear(512, 1)
 
     def forward(self, image, lstm_input, topo_input):
 
@@ -54,17 +54,17 @@ class CNN_LSTM_Model(nn.Module):
 
         x = self.conv3(x)
 
-        B, T, C, H, W = x.shape
+        B, T, _, _, _ = x.shape
         x = x.view(B, T, -1)
 
         spatial_out = torch.relu(self.fc_spatial(x))
-        lstm_in = torch.cat([lstm_input, spatial_out], dim=-1)
+        # lstm_in = torch.cat([lstm_input, spatial_out], dim=-1)
 
-        lstm_out, _ = self.lstm(lstm_in)
+        lstm_out, _ = self.lstm(spatial_out)
         lstm_out = lstm_out[:, -1, :]
 
-        topo_emb = torch.relu(self.topo_fc(topo_input))
-        final_in = torch.cat([lstm_out, topo_emb], dim=-1)
-        out = torch.sigmoid(self.final_fc(final_in))
+        # topo_emb = torch.relu(self.topo_fc(topo_input))
+        # final_in = torch.cat([lstm_out, topo_emb], dim=-1)
+        out = torch.sigmoid(self.final_fc(lstm_out))
 
         return out
