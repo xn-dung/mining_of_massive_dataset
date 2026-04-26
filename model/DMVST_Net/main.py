@@ -20,8 +20,11 @@ def main():
     loss_lambda = 0.1
     
     # feature_len = 100
-    # topo_len = 32 
+    topo_len = 32 
     npy_path = "/content/drive/MyDrive/mining_dataset/data/taxi_volume_4d_tensor.npy"
+    topo_npy_path = "/content/drive/MyDrive/mining_dataset/data/topo_input.npy"
+
+    topo_input = torch.tensor(np.load(topo_npy_path), dtype=torch.float32)
 
     raw_data = np.load(npy_path)
     total_time_steps = raw_data.shape
@@ -32,8 +35,8 @@ def main():
     min_val = train_raw.min(axis=(0, 2, 3), keepdims=True)
     max_val = train_raw.max(axis=(0, 2, 3), keepdims=True)
 
-    train_dataset = TLCdataset(raw_npy=train_raw, seq_len=seq_len, pred_len=pred_len, crop_size=crop_size, min_val=min_val, max_val=max_val)
-    eval_dataset = TLCdataset(raw_npy=eval_raw, seq_len=seq_len, pred_len=pred_len, crop_size=crop_size, min_val=min_val, max_val=max_val)
+    train_dataset = TLCdataset(raw_npy=train_raw,topo_data=topo_input, seq_len=seq_len, pred_len=pred_len, crop_size=crop_size, min_val=min_val, max_val=max_val)
+    eval_dataset = TLCdataset(raw_npy=eval_raw,topo_data=topo_input, seq_len=seq_len, pred_len=pred_len, crop_size=crop_size, min_val=min_val, max_val=max_val)
     
     
     target_channel_train = train_raw[:, 0, :, :] 
@@ -45,7 +48,7 @@ def main():
     eval_loader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False)
 
     
-    model = CNN_LSTM_Model(seq_len=seq_len).to(device)
+    model = CNN_LSTM_Model(seq_len=seq_len,topo_len=topo_len).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     print(len(train_loader), len(eval_loader))
 
@@ -55,9 +58,10 @@ def main():
         total_loss = 0.0
         num_batches = 0
 
-        for batch_img, batch_y in train_loader:
+        for batch_img, batch_y,batch_topo in train_loader:
             batch_img = batch_img.to(device)
             batch_y = batch_y.to(device)
+            batch_topo = batch_topo.to(device)
             
 
             target = batch_y.view(-1,1)
@@ -65,7 +69,7 @@ def main():
             # batch_x = torch.rand(batch_img.size(0), seq_len, feature_len, device=device)
             # batch_topo = torch.rand(batch_img.size(0), topo_len, device=device)
 
-            pred = model(batch_img)
+            pred = model(batch_img, batch_topo)
             
             loss = custom_loss(pred, target, label_max, label_min, mean_label, loss_lambda)
 
@@ -84,17 +88,18 @@ def main():
     all_trues = []
 
     with torch.no_grad():
-        for batch_img, batch_y in eval_loader:
+        for batch_img, batch_y,batch_topo in eval_loader:
             current_batch_size = batch_img.size(0)
             
             batch_img = batch_img.to(device)
             batch_y_cpu = batch_y.numpy()
+            batch_topo = batch_topo.to(device)
             
 
             # batch_x = torch.rand(current_batch_size, seq_len, feature_len, device=device)
             # batch_topo = torch.rand(current_batch_size, topo_len, device=device)
             
-            batch_pred = model(batch_img).cpu().numpy()
+            batch_pred = model(batch_img,batch_topo).cpu().numpy()
             
             all_preds.append(batch_pred)
             all_trues.append(batch_y_cpu)

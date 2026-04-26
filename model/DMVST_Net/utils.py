@@ -43,16 +43,12 @@ def custom_loss(pred, target, label_max, label_min, mean_label, loss_lambda, eps
     y_true = target * (label_max - label_min) + label_min
     y_pred = pred * (label_max - label_min) + label_min
 
-    diff = (y_true - y_pred) ** 2 / torch.clamp(y_true ** 2, min=eps)
-    relative_loss = 10.0 * torch.mean(diff, dim=-1)
+    mse = torch.mean((y_pred - y_true) ** 2)
+    percentage_loss = torch.mean(((y_true - y_pred) / torch.clamp(y_true, min=eps)) ** 2)
 
-    mean_label_tensor = torch.tensor(mean_label, dtype=torch.float32, device=pred.device)
-    mse = torch.mean((y_pred - y_true) ** 2, dim=-1)
-    mse_scaled = loss_lambda / (mean_label_tensor ** 2 + eps) * mse
+    loss = mse + loss_lambda * percentage_loss
 
-    loss = relative_loss + mse_scaled
-
-    return torch.mean(loss)
+    return loss
 
 
 def get_metrics(y_true, y_pred, max_value, min_value):
