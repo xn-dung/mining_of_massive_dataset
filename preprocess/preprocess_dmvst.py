@@ -40,6 +40,18 @@ if __name__ == '__main__':
     data[time_indices,1,grid_x,grid_y] = end_vols
     data[time_indices,2, grid_x, grid_y] = start_vols - end_vols
     np.save(DATA_DIR + 'taxi_volume_4d_tensor.npy', data)
+
+
+
+
+
+
+    df_holidays = pd.read_csv(DATA_DIR + 'holidays_2018.csv')
+    df_weather = pd.read_csv(DATA_DIR + "weather_2018.csv")
+    df_context = pd.merge(df_holidays,df_weather,on="time",how="left")
+    df_features_only = df_context.drop(columns=['time'])
+    context_data = df_features_only.values.astype(np.float32)
+    np.save(DATA_DIR + 'context_input.npy', context_data)
     print("Finished!")
 
     

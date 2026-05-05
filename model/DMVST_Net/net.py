@@ -27,6 +27,7 @@ def build_and_visualize_semantic_graph(npy_path, time_steps_per_day,output_path=
     raw_data = np.load(npy_path)
     train_size = int(0.8* raw_data.shape[0])
     train_raw = raw_data[: train_size]
+    
 
     T,C,H,W = train_raw.shape
     num_locations = H * W

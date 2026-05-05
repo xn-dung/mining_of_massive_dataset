@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 import numpy as np
 
 class TLCdataset(Dataset):
-    def __init__(self, raw_npy, seq_len=8, pred_len=1, crop_size=9, min_val=None, max_val=None):
+    def __init__(self, raw_npy, topo_data,context_data, seq_len=8, pred_len=1, crop_size=9, min_val=None, max_val=None):
         raw_data = raw_npy
         
         self.min_val = min_val
@@ -11,6 +11,8 @@ class TLCdataset(Dataset):
         normalized_data = (raw_data - self.min_val) / (self.max_val - self.min_val + 1e-7)
         
         self.data = torch.FloatTensor(normalized_data)
+        self.topo_data = topo_data
+        self.context_data = context_data
         
         self.T, self.C, self.H, self.W = self.data.shape
         self.seq_len = seq_len
@@ -40,12 +42,16 @@ class TLCdataset(Dataset):
         center_w = w_start + self.crop_size // 2
         target_channel = 0
 
-        Y_center = Y_full[:, target_channel,center_h,center_w]
+        Y_center = Y_full[:, target_channel, center_h, center_w]
 
-        return X_crop, Y_center
+        node_id = center_h * self.W + center_w
+        topo_vector = self.topo_data[node_id]
+        context_seq = self.context_data[time_idx : time_idx + self.seq_len]
+
+        return X_crop, Y_center, topo_vector,context_seq
 
     def denormalize(self, x):
-        c_min = self.min_val[0,0,0,0]
-        c_max = self.max_val[0,0,0,0]
+        c_min = self.min_val
+        c_max = self.max_val
 
         return x * (c_max - c_min + 1e-7) + c_min

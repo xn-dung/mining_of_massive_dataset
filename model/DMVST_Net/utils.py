@@ -42,11 +42,14 @@ def custom_loss(pred, target, label_max, label_min, mean_label, loss_lambda, eps
 
     y_true = target * (label_max - label_min) + label_min
     y_pred = pred * (label_max - label_min) + label_min
-
+    mask = y_true >= 10.0
+    if mask.any():
+        pct = torch.mean(((y_true[mask] - y_pred[mask]) / torch.clamp(y_true[mask], min=eps)) ** 2)
+    else:
+        pct = torch.tensor(0.0, device=y_true.device)
     mse = torch.mean((y_pred - y_true) ** 2)
-    percentage_loss = torch.mean(((y_true - y_pred) / torch.clamp(y_true, min=eps)) ** 2)
 
-    loss = mse + loss_lambda * percentage_loss
+    loss = mse + loss_lambda * pct
 
     return loss
 
