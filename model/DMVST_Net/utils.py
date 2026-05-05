@@ -38,29 +38,33 @@ def sample_get_static(datasource, seq_len, cnt):
     return np.array(X)
 
 
-def custom_loss(pred, target, label_max, label_min, mean_label, loss_lambda, eps=1e-5):
+def custom_loss(pred, target, label_max, label_min, mean_label, loss_lambda, eps=1):
+
     y_true = target * (label_max - label_min) + label_min
     y_pred = pred * (label_max - label_min) + label_min
+    mask = y_true >= 10.0
+    if mask.any():
+        pct = torch.mean(((y_true[mask] - y_pred[mask]) / torch.clamp(y_true[mask], min=eps)) ** 2)
+    else:
+        pct = torch.tensor(0.0, device=y_true.device)
+    mse = torch.mean((y_pred - y_true) ** 2)
 
-    diff = (y_true - y_pred) ** 2 / torch.clamp(y_true ** 2, min=eps)
+    loss = mse + loss_lambda * pct
 
-    loss1 = 10.0 * torch.mean(diff)
-    loss2 = loss_lambda / (mean_label ** 2 + eps) * torch.mean((y_pred - y_true) ** 2)
-
-    return loss1 + loss2
+    return loss
 
 
 def get_metrics(y_true, y_pred, max_value, min_value):
     y_true = y_true * (max_value - min_value) + min_value
     y_pred = y_pred * (max_value - min_value) + min_value
 
-    mask = y_true > 10 - 1e-10
+    mask = y_true >= 10 + 1e-10
 
     y_true_f = y_true[mask]
     y_pred_f = y_pred[mask]
 
-    smape = np.mean(np.abs(2 * (y_true_f - y_pred_f) / (y_true_f + y_pred_f + 1e-5)))
+    mape = np.mean(np.abs((y_true_f - y_pred_f) / y_true_f))
     rmse = np.sqrt(np.mean((y_true_f - y_pred_f) ** 2))
     mape_variant = np.mean(np.abs((y_true_f - y_pred_f) / (y_true_f + 10)))
 
-    return smape, rmse, mape_variant
+    return mape, rmse, mape_variant
