@@ -39,7 +39,7 @@ class CNN_LSTM_Model(nn.Module):
 
         self.topo_fc = nn.Linear(self.topo_len, 6)
 
-        self.final_fc = nn.Linear(512 + 6, 1)
+        self.final_fc = nn.Linear(512 + 6, 2)
 
     def forward(self, image,topo_input, context_input):
 
@@ -71,3 +71,4 @@ class CNN_LSTM_Model(nn.Module):
         out = torch.sigmoid(self.final_fc(final_in))
 
         return out
+    

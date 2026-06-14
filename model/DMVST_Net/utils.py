@@ -38,30 +38,51 @@ def sample_get_static(datasource, seq_len, cnt):
     return np.array(X)
 
 
-def custom_loss(pred, target, label_max, label_min, mean_label, loss_lambda, eps=1):
+def custom_loss(pred, target, label_max, label_min, mean_label=None, loss_lambda=1, eps=1):
+
+    label_max = torch.as_tensor(label_max, dtype=target.dtype, device=target.device)
+    label_min = torch.as_tensor(label_min, dtype=target.dtype, device=target.device)
+
+    label_max = label_max.view(1, -1)
+    label_min = label_min.view(1, -1)
 
     y_true = target * (label_max - label_min) + label_min
     y_pred = pred * (label_max - label_min) + label_min
+    
     mask = y_true >= 10.0
+    
     if mask.any():
-        pct = torch.mean(((y_true[mask] - y_pred[mask]) / torch.clamp(y_true[mask], min=eps)) ** 2)
+        error = y_pred[mask] - y_true[mask]
+        pct = torch.mean((error / torch.clamp(y_true[mask], min=eps)) ** 2)
+        mse = torch.mean(error ** 2)
     else:
-        pct = torch.tensor(0.0, device=y_true.device)
-    mse = torch.mean((y_pred - y_true) ** 2)
+        mse = torch.mean((y_pred - y_true) ** 2)
+        pct = (y_pred * 0.0).sum()
 
     loss = mse + loss_lambda * pct
-
     return loss
 
 
-def get_metrics(y_true, y_pred, max_value, min_value):
+def get_metrics(y_true, y_pred, max_value, min_value, threshold=10.0):
+
+    if isinstance(max_value, torch.Tensor):
+        max_value = max_value.cpu().numpy()
+    if isinstance(min_value, torch.Tensor):
+        min_value = min_value.cpu().numpy()
+
+    max_value = np.array(max_value).reshape(1, -1)
+    min_value = np.array(min_value).reshape(1, -1)
+
     y_true = y_true * (max_value - min_value) + min_value
     y_pred = y_pred * (max_value - min_value) + min_value
 
-    mask = y_true >= 10 + 1e-10
+    mask = y_true >= threshold
 
     y_true_f = y_true[mask]
     y_pred_f = y_pred[mask]
+
+    if y_true_f.size == 0:
+        return np.nan, np.nan, np.nan
 
     mape = np.mean(np.abs((y_true_f - y_pred_f) / y_true_f))
     rmse = np.sqrt(np.mean((y_true_f - y_pred_f) ** 2))
