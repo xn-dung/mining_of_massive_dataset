@@ -5,12 +5,9 @@ from attention import Attention, SimpleAttention
 
 
 class STDN(nn.Module):
-    """
-    Spatial-Temporal Dynamic Network (STDN) in PyTorch
-    """
     def __init__(self, att_lstm_num, att_lstm_seq_len, lstm_seq_len, feature_vec_len, 
                  cnn_flat_size=128, lstm_out_size=128, nbhd_size=3, nbhd_type=2, 
-                 flow_type=4, output_shape=2):
+                 flow_type=4, output_shape=2, dropout_rate=0.5, context_dim=0):
         super(STDN, self).__init__()
         
         self.att_lstm_num = att_lstm_num
@@ -19,102 +16,95 @@ class STDN(nn.Module):
         self.feature_vec_len = feature_vec_len
         self.cnn_flat_size = cnn_flat_size
         self.lstm_out_size = lstm_out_size
-        self.nbhd_size = nbhd_size
-        self.nbhd_type = nbhd_type
-        self.flow_type = flow_type
-        self.output_shape = output_shape
+        self.dropout = nn.Dropout(dropout_rate)
+        self.context_dim = context_dim
+
+        if context_dim > 0:
+            self.context_projection = nn.Linear(context_dim, 64)
+            nn.init.zeros_(self.context_projection.weight)
+            nn.init.zeros_(self.context_projection.bias)
+        else:
+            self.context_projection = None
         
-        # ===================== SHORT-TERM PART =====================
-        # 1st level gate
         self.nbhd_convs_level0 = nn.ModuleList([
-            nn.Conv2d(nbhd_type, 64, kernel_size=3, padding=1) 
+            nn.Conv2d(nbhd_type, 64, 3, padding=1) 
             for _ in range(lstm_seq_len)
         ])
         self.flow_convs_level0 = nn.ModuleList([
-            nn.Conv2d(flow_type, 64, kernel_size=3, padding=1) 
+            nn.Conv2d(flow_type, 64, 3, padding=1) 
             for _ in range(lstm_seq_len)
         ])
         
-        # 2nd level gate
         self.nbhd_convs_level1 = nn.ModuleList([
-            nn.Conv2d(64, 64, kernel_size=3, padding=1) 
+            nn.Conv2d(64, 64, 3, padding=1) 
             for _ in range(lstm_seq_len)
         ])
         self.flow_convs_level1 = nn.ModuleList([
-            nn.Conv2d(flow_type, 64, kernel_size=3, padding=1) 
+            nn.Conv2d(flow_type, 64, 3, padding=1) 
             for _ in range(lstm_seq_len)
         ])
         
-        # 3rd level gate
         self.nbhd_convs_level2 = nn.ModuleList([
-            nn.Conv2d(64, 64, kernel_size=3, padding=1) 
+            nn.Conv2d(64, 64, 3, padding=1) 
             for _ in range(lstm_seq_len)
         ])
         self.flow_convs_level2 = nn.ModuleList([
-            nn.Conv2d(flow_type, 64, kernel_size=3, padding=1) 
+            nn.Conv2d(flow_type, 64, 3, padding=1) 
             for _ in range(lstm_seq_len)
         ])
         
-        # Dense layer for CNN output
         cnn_output_size = 64 * nbhd_size * nbhd_size
+        
         self.nbhd_dense = nn.ModuleList([
             nn.Linear(cnn_output_size, cnn_flat_size) 
             for _ in range(lstm_seq_len)
         ])
         
-        # Short-term LSTM
         self.short_term_lstm = nn.LSTM(
             input_size=feature_vec_len + cnn_flat_size,
             hidden_size=lstm_out_size,
-            num_layers=1,
-            batch_first=True,
-            dropout=0.1
+            batch_first=True
         )
-        
-        # ===================== ATTENTION PART =====================
-        # Attention LSTM CNNs (3 attention mechanisms)
+
         self.att_nbhd_convs_level0 = nn.ModuleList([
             nn.ModuleList([
-                nn.Conv2d(nbhd_type, 64, kernel_size=3, padding=1) 
+                nn.Conv2d(nbhd_type, 64, 3, padding=1) 
                 for _ in range(att_lstm_seq_len)
             ]) for _ in range(att_lstm_num)
         ])
         self.att_flow_convs_level0 = nn.ModuleList([
             nn.ModuleList([
-                nn.Conv2d(flow_type, 64, kernel_size=3, padding=1) 
+                nn.Conv2d(flow_type, 64, 3, padding=1) 
                 for _ in range(att_lstm_seq_len)
             ]) for _ in range(att_lstm_num)
         ])
         
-        # 2nd level gates for attention
         self.att_nbhd_convs_level1 = nn.ModuleList([
             nn.ModuleList([
-                nn.Conv2d(64, 64, kernel_size=3, padding=1) 
+                nn.Conv2d(64, 64, 3, padding=1) 
                 for _ in range(att_lstm_seq_len)
             ]) for _ in range(att_lstm_num)
         ])
         self.att_flow_convs_level1 = nn.ModuleList([
             nn.ModuleList([
-                nn.Conv2d(flow_type, 64, kernel_size=3, padding=1) 
+                nn.Conv2d(flow_type, 64, 3, padding=1) 
                 for _ in range(att_lstm_seq_len)
             ]) for _ in range(att_lstm_num)
         ])
         
-        # 3rd level gates for attention
         self.att_nbhd_convs_level2 = nn.ModuleList([
             nn.ModuleList([
-                nn.Conv2d(64, 64, kernel_size=3, padding=1) 
+                nn.Conv2d(64, 64, 3, padding=1) 
                 for _ in range(att_lstm_seq_len)
             ]) for _ in range(att_lstm_num)
         ])
         self.att_flow_convs_level2 = nn.ModuleList([
             nn.ModuleList([
-                nn.Conv2d(flow_type, 64, kernel_size=3, padding=1) 
+                nn.Conv2d(flow_type, 64, 3, padding=1) 
                 for _ in range(att_lstm_seq_len)
             ]) for _ in range(att_lstm_num)
         ])
         
-        # Dense layers for attention CNNs
         self.att_nbhd_dense = nn.ModuleList([
             nn.ModuleList([
                 nn.Linear(cnn_output_size, cnn_flat_size) 
@@ -122,149 +112,148 @@ class STDN(nn.Module):
             ]) for _ in range(att_lstm_num)
         ])
         
-        # Attention LSTMs
         self.att_lstms = nn.ModuleList([
-            nn.LSTM(
-                input_size=feature_vec_len + cnn_flat_size,
-                hidden_size=lstm_out_size,
-                num_layers=1,
-                batch_first=True,
-                dropout=0.1
-            ) for _ in range(att_lstm_num)
+            nn.LSTM(feature_vec_len + cnn_flat_size, lstm_out_size, batch_first=True)
+            for _ in range(att_lstm_num)
         ])
         
-        # Attention mechanism
         self.attention_layers = nn.ModuleList([
-            Attention(method='cba') for _ in range(att_lstm_num)
+            Attention(method='cba', att_size=lstm_out_size, query_dim=lstm_out_size)
+            for _ in range(att_lstm_num)
         ])
         
-        # High-level attention LSTM
         self.attention_lstm = nn.LSTM(
-            input_size=lstm_out_size * att_lstm_num,
+            input_size=lstm_out_size,
             hidden_size=lstm_out_size,
-            num_layers=1,
-            batch_first=True,
-            dropout=0.1
+            batch_first=True
         )
         
-        # Output layer
         self.output_dense = nn.Linear(lstm_out_size * 2, output_shape)
 
+    def _context_at(self, context_inputs, ts):
+        if context_inputs is None:
+            return None
+        if isinstance(context_inputs, (list, tuple)):
+            return context_inputs[ts]
+        if context_inputs.dim() == 3:
+            return context_inputs[:, ts, :]
+        return context_inputs
+
+    def _att_context_at(self, att_context_inputs, att, ts, idx):
+        if att_context_inputs is None:
+            return None
+        if isinstance(att_context_inputs, (list, tuple)):
+            item = att_context_inputs[att]
+            if isinstance(item, (list, tuple)):
+                return item[ts]
+            if item.dim() == 3:
+                return item[:, ts, :]
+            return att_context_inputs[idx]
+        if att_context_inputs.dim() == 4:
+            return att_context_inputs[:, att, ts, :]
+        if att_context_inputs.dim() == 3:
+            if att_context_inputs.shape[1] == self.att_lstm_num:
+                return att_context_inputs[:, att, :]
+            return att_context_inputs[:, idx, :]
+        return att_context_inputs
+
+    def _add_context(self, x, context):
+        if context is None:
+            return x
+        if self.context_projection is None:
+            raise ValueError("context_dim must be > 0 when context inputs are provided.")
+
+        if context.dim() > 2:
+            context = context.reshape(context.shape[0], -1)
+        context = context.to(device=x.device, dtype=x.dtype)
+        external = self.context_projection(context)
+        return x + external.unsqueeze(-1).unsqueeze(-1)
+
     def forward(self, att_nbhd_inputs, att_flow_inputs, att_lstm_inputs, 
-                nbhd_inputs, flow_inputs, lstm_inputs):
-        """
-        Forward pass
-        Inputs:
-            att_nbhd_inputs: list of attention neighborhood inputs (att_lstm_num * att_lstm_seq_len)
-            att_flow_inputs: list of attention flow inputs (att_lstm_num * att_lstm_seq_len)
-            att_lstm_inputs: list of attention LSTM feature vectors (att_lstm_num)
-            nbhd_inputs: list of neighborhood inputs (lstm_seq_len)
-            flow_inputs: list of flow inputs (lstm_seq_len)
-            lstm_inputs: LSTM feature vector input (batch, lstm_seq_len, feature_vec_len)
-        """
+                nbhd_inputs, flow_inputs, lstm_inputs, context_inputs=None,
+                att_context_inputs=None):
+
         batch_size = lstm_inputs.shape[0]
         
-        # ===================== SHORT-TERM PROCESSING =====================
         nbhd_vecs = []
         for ts in range(self.lstm_seq_len):
-            # 1st level gate
-            nbhd_conv = F.relu(self.nbhd_convs_level0[ts](nbhd_inputs[ts]))
-            flow_conv = F.relu(self.flow_convs_level0[ts](flow_inputs[ts]))
-            flow_gate = torch.sigmoid(flow_conv)
-            nbhd_conv = nbhd_conv * flow_gate
+            context = self._context_at(context_inputs, ts)
+            nbhd = F.relu(self.nbhd_convs_level0[ts](nbhd_inputs[ts]))
+            flow = torch.sigmoid(self.flow_convs_level0[ts](flow_inputs[ts]))
+            x = nbhd * flow
+            x = self._add_context(x, context)
             
-            # 2nd level gate
-            nbhd_conv = F.relu(self.nbhd_convs_level1[ts](nbhd_conv))
-            flow_conv = F.relu(self.flow_convs_level1[ts](flow_inputs[ts]))
-            flow_gate = torch.sigmoid(flow_conv)
-            nbhd_conv = nbhd_conv * flow_gate
+            x = F.relu(self.nbhd_convs_level1[ts](x))
+            flow = torch.sigmoid(self.flow_convs_level1[ts](flow_inputs[ts]))
+            x = x * flow
+            x = self._add_context(x, context)
             
-            # 3rd level gate
-            nbhd_conv = F.relu(self.nbhd_convs_level2[ts](nbhd_conv))
-            flow_conv = F.relu(self.flow_convs_level2[ts](flow_inputs[ts]))
-            flow_gate = torch.sigmoid(flow_conv)
-            nbhd_conv = nbhd_conv * flow_gate
+            x = F.relu(self.nbhd_convs_level2[ts](x))
+            flow = torch.sigmoid(self.flow_convs_level2[ts](flow_inputs[ts]))
+            x = x * flow
+            x = self._add_context(x, context)
             
-            # Dense layer
-            nbhd_vec = nbhd_conv.view(batch_size, -1)
-            nbhd_vec = F.relu(self.nbhd_dense[ts](nbhd_vec))
-            nbhd_vecs.append(nbhd_vec)
+            x = x.reshape(batch_size, -1)
+            x = F.relu(self.nbhd_dense[ts](x))
+            x = self.dropout(x)
+            nbhd_vecs.append(x)
         
-        # Reshape and concatenate
-        nbhd_vec = torch.stack(nbhd_vecs, dim=1)  # (batch, lstm_seq_len, cnn_flat_size)
+        nbhd_vec = torch.stack(nbhd_vecs, dim=1)
         lstm_input = torch.cat([lstm_inputs, nbhd_vec], dim=-1)
         
-        # Short-term LSTM
         lstm_output, _ = self.short_term_lstm(lstm_input)
-        lstm_output = lstm_output[:, -1, :]  # Take last output (batch, lstm_out_size)
+        lstm_output = lstm_output[:, -1, :]
+        lstm_output = self.dropout(lstm_output)
         
-        # ===================== ATTENTION PROCESSING =====================
-        att_lstms_outputs = []
-        
+        att_outputs = []
         for att in range(self.att_lstm_num):
-            att_nbhd_vecs = []
+            seq = []
             for ts in range(self.att_lstm_seq_len):
                 idx = att * self.att_lstm_seq_len + ts
+                context = self._att_context_at(att_context_inputs, att, ts, idx)
                 
-                # 1st level gate
-                nbhd_conv = F.relu(self.att_nbhd_convs_level0[att][ts](att_nbhd_inputs[idx]))
-                flow_conv = F.relu(self.att_flow_convs_level0[att][ts](att_flow_inputs[idx]))
-                flow_gate = torch.sigmoid(flow_conv)
-                nbhd_conv = nbhd_conv * flow_gate
+                nbhd = F.relu(self.att_nbhd_convs_level0[att][ts](att_nbhd_inputs[idx]))
+                flow = torch.sigmoid(self.att_flow_convs_level0[att][ts](att_flow_inputs[idx]))
+                x = nbhd * flow
+                x = self._add_context(x, context)
                 
-                # 2nd level gate
-                nbhd_conv = F.relu(self.att_nbhd_convs_level1[att][ts](nbhd_conv))
-                flow_conv = F.relu(self.att_flow_convs_level1[att][ts](att_flow_inputs[idx]))
-                flow_gate = torch.sigmoid(flow_conv)
-                nbhd_conv = nbhd_conv * flow_gate
+                x = F.relu(self.att_nbhd_convs_level1[att][ts](x))
+                flow = torch.sigmoid(self.att_flow_convs_level1[att][ts](att_flow_inputs[idx]))
+                x = x * flow
+                x = self._add_context(x, context)
                 
-                # 3rd level gate
-                nbhd_conv = F.relu(self.att_nbhd_convs_level2[att][ts](nbhd_conv))
-                flow_conv = F.relu(self.att_flow_convs_level2[att][ts](att_flow_inputs[idx]))
-                flow_gate = torch.sigmoid(flow_conv)
-                nbhd_conv = nbhd_conv * flow_gate
+                x = F.relu(self.att_nbhd_convs_level2[att][ts](x))
+                flow = torch.sigmoid(self.att_flow_convs_level2[att][ts](att_flow_inputs[idx]))
+                x = x * flow
+                x = self._add_context(x, context)
                 
-                # Dense layer
-                nbhd_vec = nbhd_conv.view(batch_size, -1)
-                nbhd_vec = F.relu(self.att_nbhd_dense[att][ts](nbhd_vec))
-                att_nbhd_vecs.append(nbhd_vec)
+                x = x.reshape(batch_size, -1)
+                x = F.relu(self.att_nbhd_dense[att][ts](x))
+                x = self.dropout(x)
+                seq.append(x)
             
-            # Reshape and concatenate
-            att_nbhd_vec = torch.stack(att_nbhd_vecs, dim=1)  # (batch, att_lstm_seq_len, cnn_flat_size)
-            att_lstm_input = torch.cat([att_lstm_inputs[att], att_nbhd_vec], dim=-1)
-            
-            # Attention LSTM
-            att_lstm_out, _ = self.att_lstms[att](att_lstm_input)
-            att_lstms_outputs.append(att_lstm_out)
+            seq = torch.stack(seq, dim=1)
+            att_lstm_input = torch.cat([att_lstm_inputs[att], seq], dim=-1)
+            out, _ = self.att_lstms[att](att_lstm_input)
+            out = self.dropout(out)
+            att_outputs.append(out)
         
-        # ===================== ATTENTION COMPARISON =====================
-        # Low-level attention
-        att_low_level = []
-        for att in range(self.att_lstm_num):
-            att_output = self.attention_layers[att]([att_lstms_outputs[att], lstm_output])
-            att_low_level.append(att_output)
+        att_low = []
+        for i in range(self.att_lstm_num):
+            out = self.attention_layers[i]([att_outputs[i], lstm_output])
+            att_low.append(out)
         
-        att_low_level = torch.stack(att_low_level, dim=1)  # (batch, att_lstm_num, lstm_out_size)
+        att_low = torch.stack(att_low, dim=1)
+        att_high, _ = self.attention_lstm(att_low)
+        att_high = att_high[:, -1, :]
+        att_high = self.dropout(att_high)
         
-        # High-level attention LSTM
-        att_high_level, _ = self.attention_lstm(att_low_level)
-        att_high_level = att_high_level[:, -1, :]  # (batch, lstm_out_size)
+        final = torch.cat([att_high, lstm_output], dim=-1)
+        out = torch.tanh(self.output_dense(final))
         
-        # ===================== OUTPUT =====================
-        lstm_all = torch.cat([att_high_level, lstm_output], dim=-1)
-        pred_volume = torch.tanh(self.output_dense(lstm_all))
-        
-        return pred_volume
+        return out
 
 
 class models:
-    """Wrapper class for model creation"""
-    def __init__(self):
-        pass
-
-    def stdn(self, att_lstm_num, att_lstm_seq_len, lstm_seq_len, feature_vec_len, 
-             cnn_flat_size=128, lstm_out_size=128, nbhd_size=3, nbhd_type=2, 
-             flow_type=4, output_shape=2):
-        """Create STDN model"""
-        return STDN(att_lstm_num, att_lstm_seq_len, lstm_seq_len, feature_vec_len,
-                   cnn_flat_size, lstm_out_size, nbhd_size, nbhd_type, flow_type, output_shape)
+    def stdn(self, *args, **kwargs):
+        return STDN(*args, **kwargs)

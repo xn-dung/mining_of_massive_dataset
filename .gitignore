@@ -1,1 +1,27 @@
-data/
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Notebook metadata
+.ipynb_checkpoints/
+
+# Generated data and experiment artifacts
+*.json
+*.csv
+*.npz
+*.npy
+*.parquet
+*.pth
+*.pt
+*.ckpt
+*.pkl
+*.pickle
+*.h5
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
