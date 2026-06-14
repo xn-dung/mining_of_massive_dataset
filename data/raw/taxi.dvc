@@ -1,0 +1,6 @@
+outs:
+- md5: 01a2a70d3f8266adf44cb1fb0b51d9d6.dir
+  size: 1943844994
+  nfiles: 36
+  hash: md5
+  path: taxi

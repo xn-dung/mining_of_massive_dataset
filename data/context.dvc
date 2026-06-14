@@ -1,0 +1,6 @@
+outs:
+- md5: c236b347ff057b6e5a9fc4f3015394ae.dir
+  size: 5010017
+  nfiles: 6
+  hash: md5
+  path: context
