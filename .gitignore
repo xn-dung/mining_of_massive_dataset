@@ -21,6 +21,21 @@ __pycache__/
 *.pkl
 *.pickle
 *.h5
+*.db
+*.sqlite
+*.sqlite3
+*.dat
+
+# Project data, trained checkpoints, and evaluation outputs
+Data_V_F/
+PathModel/
+KetQuaTesting/
+
+# Demo runtime state, crawled data, generated predictions, and model artifacts
+demo/data/
+demo/artifacts/
+demo/CrawlSTDN/credentials.json
+demo/CrawlSTDN/token.json
 
 # OS/editor noise
 .DS_Store

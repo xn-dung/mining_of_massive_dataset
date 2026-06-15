@@ -1,0 +1,58 @@
+# =============================================================================
+# Cấu hình STDN — giống config.yaml nhưng phần ACTUAL lấy THÊM file MM_flow.parquet
+# =============================================================================
+# CẤU TRÚC NGUỒN trên Drive:
+#
+#   TLC_project/
+#   └── data/                          <-- root (sau khi đi qua TLC_project)
+#       ├── processed/
+#       │   └── yellow_2024/
+#       │       ├── 04_volume.csv      <-- actual #1
+#       │       └── 04_flow.parquet    <-- actual #2 (THÊM Ở BẢN STDN)
+#       └── context/
+#           ├── weather_2024.csv
+#           └── holidays_2024.csv
+#
+# ĐÍCH ở local:
+#   incoming/
+#   ├── actual/   -> 2024_04_volume.csv  +  04_flow.parquet
+#   └── context/  -> weather_2024.csv, holidays_2024.csv
+# =============================================================================
+
+google_drive:
+  credentials_file: "credentials.json"
+  token_file: "token.json"
+  use_service_account: false
+
+  root_folder_name: "TLC_project"
+  root_subpath: ["data"]
+  root_folder_id: ""
+
+local:
+  incoming_dir: "./incoming"
+  actual_dir: "actual"
+  context_dir: "context"
+
+# Khai báo file cần lấy. {year}=YYYY, {month}=MM (pad 2 số).
+#   subpath  = các folder con (so với root) phải đi qua để tới file.
+#   filename = tên file TRÊN DRIVE.
+#   save_as  = tên file khi LƯU Ở LOCAL (bỏ trống = giữ nguyên filename).
+targets:
+  # actual giờ là DANH SÁCH nhiều file.
+  actual:
+    - subpath: ["processed", "yellow_{year}"]
+      filename: "{month}_volume.csv"           # nguồn: volume
+      save_as: "{year}_{month}_volume.csv"     # đích: thêm tiền tố năm_tháng
+    - subpath: ["processed", "yellow_{year}"]
+      filename: "{month}_flow.parquet"         # nguồn = đích (giữ nguyên tên)
+      # save_as bỏ trống -> lưu local thành MM_flow.parquet
+
+  context:
+    - subpath: ["context"]
+      filename: "weather_{year}.csv"
+    - subpath: ["context"]
+      filename: "holidays_{year}.csv"
+
+download:
+  chunk_size_mb: 50
+  overwrite: false
